@@ -1,36 +1,53 @@
 <?php
-/**
- * Elgg index page for web-based applications
- *
- * @package Elgg
- * @subpackage Core
- * @author Curverider Ltd
- * @link http://elgg.org/
- */
 
-/**
- * Start the Elgg engine
- */
-define('externalpage',true);
-require_once(dirname(__FILE__) . "/engine/start.php");
-
-if (!trigger_plugin_hook('index', 'system', null, FALSE)) {
 	/**
-	 * Check to see if user is logged in, if not display login form
-	 **/
+	 * Elgg blog index page
+	 * 
+	 * @package ElggBlog
+	 * @license http://www.gnu.org/licenses/old-licenses/gpl-2.0.html GNU Public License version 2
+	 * @author Curverider Ltd <info@elgg.com>
+	 * @copyright Curverider Ltd 2008-2010
+	 * @link http://elgg.com/
+	 */
 
-	if (isloggedin()) {
-		forward('pg/dashboard/');
-	}
+	// Load Elgg engine
+		require_once(dirname(dirname(dirname(__FILE__))) . "/engine/start.php");
+		
+	// Get the current page's owner
+		$page_owner = page_owner_entity();
+		if ($page_owner === false || is_null($page_owner)) {
+			
+			// guess that logged in user is the owner - if no logged in send to all blogs page
+			if (!isloggedin()) {
+				forward('mod/blog/everyone.php');
+			}
+			
+			$page_owner = $_SESSION['user'];
+			set_page_owner($_SESSION['guid']);
+		}
 
-	//Load the front page
-	global $CONFIG;
-	$title = elgg_view_title(elgg_echo('content:latest'));
-	set_context('search');
-	$content = elgg_list_registered_entities(array('limit' => 10, 'full_view' => FALSE, 'allowed_types' => array('object','group')));
-	set_context('main');
-	global $autofeed;
-	$autofeed = FALSE;
-	$content = elgg_view_layout('two_column_left_sidebar', '', $title . $content, elgg_view("account/forms/login"));
-	page_draw(null, $content);
-}
+	//set blog title
+		if($page_owner == $_SESSION['user']){
+			$area2 = elgg_view_title(elgg_echo('blog:your'));
+		}else{
+			//$area1 = elgg_view_title($page_owner->username . "'s " . elgg_echo('blog'));
+		}
+		
+	// Get a list of blog posts
+		$area2 .= "<div id=\"blogs\">";
+		$area2 .= elgg_list_entities(array('type' => 'object', 'subtype' => 'blog', 'container_guid' => page_owner(), 'limit' => 10, 'full_view' => FALSE, 'view_type_toggle' => FALSE));
+		$area2 .= "<div class='clearfloat'></div></div>";
+
+	// Get blog tags
+
+		// Get categories, if they're installed
+		global $CONFIG;
+		$area3 = elgg_view('blog/categorylist',array('baseurl' => $CONFIG->wwwroot . 'search/?subtype=blog&owner_guid='.$page_owner->guid.'&tagtype=universal_categories&tag=','subtype' => 'blog', 'owner_guid' => $page_owner->guid));
+		
+	// Display them in the page
+        $body = elgg_view_layout("two_column_left_sidebar", '', $area1 . $area2, $area3);
+		
+	// Display page
+		page_draw(sprintf(elgg_echo('blog:user'),$page_owner->name),$body);
+		
+?>
